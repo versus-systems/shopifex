@@ -15,6 +15,7 @@ defmodule ShopifexWeb.AuthController do
   """
   defmacro __using__(_opts) do
     quote do
+      @behaviour ShopifexWeb.AuthController.Behaviour
       require Logger
 
       # get authorization token for the shop and save the shop in the DB
@@ -38,7 +39,7 @@ defmodule ShopifexWeb.AuthController do
               if conn.private.valid_hmac do
                 conn
                 |> put_flash(:shop, shop)
-                |> redirect(to: "/")
+                |> before_render(shop)
               else
                 send_resp(
                   conn,
@@ -65,6 +66,12 @@ defmodule ShopifexWeb.AuthController do
         |> render("select-store.html")
       end
 
+      @doc """
+      Optional callback executed after a request has been validated and the store has been loaded into the session.
+      Here you can do something like make sure the store's subscription is in order before rendering the app.
+      """
+      def before_render(conn, shop), do: redirect(conn, to: "/")
+
       def install(conn = %{private: %{valid_hmac: true}}, %{"code" => code, "shop" => shop_url}) do
         url = "https://#{shop_url}/admin/oauth/access_token"
 
@@ -87,15 +94,30 @@ defmodule ShopifexWeb.AuthController do
               |> Shopifex.Shops.create_shop()
               |> Shopifex.Shops.configure_webhooks()
 
-            redirect(conn,
-              external:
-                "https://#{shop_url}/admin/apps/#{Application.fetch_env!(:shopifex, :api_key)}"
-            )
+            after_install(conn, shop)
 
           error ->
             IO.inspect(error)
         end
       end
+
+      @doc """
+      Optional callback executed after a store has been stored in the database and the webhooks have been configured.
+      """
+      def after_install(conn, shop),
+        do:
+          redirect(conn,
+            external:
+              "https://#{shop.url}/admin/apps/#{Application.fetch_env!(:shopifex, :api_key)}"
+          )
+
+      defoverridable ShopifexWeb.AuthController.Behaviour
     end
+  end
+
+  defmodule Behaviour do
+    @callback before_render(conn :: %Plug.Conn{}, shop :: struct()) :: Plug.Conn
+    @callback after_install(conn :: %Plug.Conn{}, shop :: struct()) :: Plug.Conn
+    @optional_callbacks before_render: 2, after_install: 2
   end
 end
