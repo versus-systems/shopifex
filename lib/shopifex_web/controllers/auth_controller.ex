@@ -60,10 +60,10 @@ defmodule ShopifexWeb.AuthController do
       require Logger
 
       def auth(conn, _) do
-        path_prefix = Application.get_env(:shopifex, :path_prefix, "")
+        # path_prefix = Application.get_env(:shopifex, :path_prefix, "")
 
         conn
-        |> redirect(to: path_prefix <> "/?token=" <> Guardian.Plug.current_token(conn))
+        # |> redirect(to: path_prefix <> "/?token=" <> Guardian.Plug.current_token(conn))
       end
 
       def initialize_installation(conn, %{"shop" => shop_url}) do
